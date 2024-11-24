@@ -8,7 +8,7 @@ from langchain_community.utilities.sql_database import SQLDatabase
 from crewai import Agent, Task, Crew, Process, LLM
 from crewai.tools import tool
 
-GROQ_API_KEY = "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"
+GROQ_API_KEY = ""
 
 llm = LLM(model="groq/llama-3.1-70b-versatile", temperature=0, api_key=GROQ_API_KEY)
 
