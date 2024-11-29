@@ -8,11 +8,10 @@ from langchain_community.utilities.sql_database import SQLDatabase
 from crewai import Agent, Task, Crew, Process, LLM
 from crewai.tools import tool
 from textwrap import dedent
-from dotenv import load_dotenv
-
 import os
 
-load_dotenv()
+
+
 
 llm = LLM(
     model="ollama/maxkb/chat2db-sql:7b-q8_0",
@@ -158,10 +157,3 @@ def tasks(inputs) -> Crew:
     return crew
 
 
-inputs = {
-    "query": "which country has maximum mean of salary?"
-}
-crew = tasks(inputs)
-result = crew.kickoff(inputs=inputs)
-
-print(result)
