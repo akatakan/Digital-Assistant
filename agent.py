@@ -15,9 +15,9 @@ import os
 load_dotenv()
 
 llm = LLM(
-    model="groq/llama-3.1-70b-versatile",
-    temperature=0,
-    api_key=os.environ.get("GROQ_API_KEY"),
+    model="ollama/maxkb/chat2db-sql:7b-q8_0",
+    temperature=0.1,
+    base_url="http://localhost:11434",
 )
 
 
@@ -28,7 +28,7 @@ db = SQLDatabase.from_uri("sqlite:///salaries.db")
 def list_table() -> str:
     """List the available tables in the database"""
     tool = ListSQLDatabaseTool(db=db)
-    return tool.invoke("")
+    return tool.run("")
 
 
 @tool("Tables schemas")
@@ -39,14 +39,14 @@ def tables_schema(tables: str) -> str:
     Example Input: table1, table2, table3
     """
     tool = InfoSQLDatabaseTool(db=db)
-    return tool.invoke(tables)
+    return tool.run(tables)
 
 
 @tool("Execute SQL")
 def execute_sql(sql_query: str) -> str:
     """Execute a SQL query against the database. Returns the result"""
     tool = QuerySQLDataBaseTool(db=db)
-    return tool.invoke(sql_query)
+    return tool.run(sql_query)
 
 
 @tool("Check SQL query")
@@ -58,25 +58,22 @@ def check_sql_query(sql_query: str) -> str:
     tool = QuerySQLCheckerTool(db=db, llm=llm)
     return tool.run({"query": sql_query})
 
-
-print(check_sql_query.run("SELECT * FROM salaries WHERE salary > 10000 LIMIT 5"))
-
 # Agents
 sql_developer = Agent(
-    role="Senior Database Developer",
-    goal="Construct and execute SQL queries based on a request",
+    role="Database Query Expert",
+    goal="Generate accurate SQL queries based on available database schema",
     backstory=dedent(
         """
-        You are an experienced database engineer who is master at creating efficient and complex SQL queries.
-        You have a deep understanding of how different databases work and how to optimize queries.
-        Use the `list_tables` to find available tables.
-        Use the `tables_schema` to understand the metadata for the tables.
-        Use the `execute_sql` to check your queries for correctness.
-        Use the `check_sql` to execute queries against the database.
+        You are an extremely methodical database engineer who:
+        - ALWAYS first checks available tables
+        - EXACTLY matches query to database structure
+        - Uses ONLY confirmed table and column names
+        - Executes queries if gives error verify and correct
+        - Provides step-by-step reasoning
         """
     ),
     llm=llm,
-    tools=[list_table, tables_schema, execute_sql, check_sql_query],
+    tools=[list_table, tables_schema,execute_sql,check_sql_query],
     allow_delegation=False,
 )
 
@@ -110,48 +107,61 @@ report_writer = Agent(
 )
 
 # Tasks
-extract_data = Task(
-    description="Extract data that is required for the query {query}.",
-    expected_output="Database result for the query",
-    agent=sql_developer,
-)
+def tasks(inputs) -> Crew:
+    discover_schema = Task(
+        description="Discover and document the available database tables and their schemas",
+        expected_output="Detailed list of tables and their structures",
+        agent=sql_developer,
+        tools=[list_table, tables_schema]
+    )
 
 
-analyze_data = Task(
-    description="Analyze the data from the database and write an analysis for {query}.",
-    expected_output="Detailed analysis text",
-    agent=data_analyst,
-    context=[extract_data],
-)
+    extract_data = Task(
+        description=f"Generate and execute SQL query to answer: {inputs["query"]}",
+        expected_output="Precise database query results",
+        agent=sql_developer,
+        context=[discover_schema],
+        tools=[check_sql_query, execute_sql]
+    )
 
 
-write_report = Task(
-    description=dedent(
+    analyze_data = Task(
+        description="Analyze the data from the database and write an analysis for {query}.",
+        expected_output="Detailed analysis text",
+        agent=data_analyst,
+        context=[extract_data],
+    )
+
+
+    write_report = Task(
+        description=dedent(
+            """
+            Write an executive summary of the report from the analysis. The report
+            must be less than 100 words.
         """
-        Write an executive summary of the report from the analysis. The report
-        must be less than 100 words.
-    """
-    ),
-    expected_output="Markdown report",
-    agent=report_writer,
-    context=[analyze_data],
-)
+        ),
+        expected_output="Markdown report",
+        agent=report_writer,
+        context=[analyze_data],
+    )
 
-# Crew
-crew = Crew(
-    agents=[sql_developer, data_analyst, report_writer],
-    tasks=[extract_data, analyze_data, write_report],
-    process=Process.sequential,
-    verbose=True,
-    memory=False,
-    output_log_file="crew.log",
-)
+    # Crew
+    crew = Crew(
+        agents=[sql_developer, data_analyst, report_writer],
+        tasks=[extract_data, analyze_data, write_report],
+        process=Process.sequential,
+        verbose=True,
+        memory=False,
+        output_log_file="crew.log",
+    )
+
+    return crew
 
 
 inputs = {
-    "query": "Analyze correlation between salary and experience",
+    "query": "which country has maximum mean of salary?"
 }
-
+crew = tasks(inputs)
 result = crew.kickoff(inputs=inputs)
 
 print(result)
