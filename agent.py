@@ -8,7 +8,6 @@ from langchain_community.utilities.sql_database import SQLDatabase
 from crewai import Agent, Task, Crew, Process, LLM
 from crewai.tools import tool
 from textwrap import dedent
-import os
 
 
 
@@ -63,12 +62,12 @@ sql_developer = Agent(
     goal="Generate accurate SQL queries based on available database schema",
     backstory=dedent(
         """
-        You are an extremely methodical database engineer who:
-        - ALWAYS first checks available tables
-        - EXACTLY matches query to database structure
+        You are a methodical database engineer who:
+        - Always first checks available tables
+        - Exactly matches query to database structure
         - Uses ONLY confirmed table and column names
         - Executes queries if gives error verify and correct
-        - Provides step-by-step reasoning
+        - Provides step-by-step reasoning  
         """
     ),
     llm=llm,
@@ -116,7 +115,7 @@ def tasks(inputs) -> Crew:
 
 
     extract_data = Task(
-        description=f"Generate and execute SQL query to answer: {inputs["query"]}",
+        description=f"Generate and execute SQL query to answer: {inputs['query']}",
         expected_output="Precise database query results",
         agent=sql_developer,
         context=[discover_schema],
@@ -147,7 +146,7 @@ def tasks(inputs) -> Crew:
     # Crew
     crew = Crew(
         agents=[sql_developer, data_analyst, report_writer],
-        tasks=[extract_data, analyze_data, write_report],
+        tasks=[discover_schema,extract_data, analyze_data, write_report],
         process=Process.sequential,
         verbose=True,
         memory=False,

@@ -4,7 +4,7 @@ import agent as at
 with st.sidebar:
     db_uri=st.text_input("Database URI", "sqlite:///salaries.db")
 
-llm = CrewLLM(db_uri)
+
 st.title("💬 Chat with DB")
 
 if "messages" not in st.session_state:

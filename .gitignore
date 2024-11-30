@@ -1,2 +1,4 @@
-agentvenv
+digivenv
 .env
+__pycache__
+crew.log
