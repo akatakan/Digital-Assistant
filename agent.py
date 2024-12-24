@@ -65,13 +65,13 @@ sql_developer = Agent(
         You are a methodical database engineer who:
         - Always first checks available tables
         - Exactly matches query to database structure
-        - Uses ONLY confirmed table and column names
+        - Uses only confirmed table and column names
         - Executes queries if gives error verify and correct
         - Provides step-by-step reasoning  
         """
     ),
     llm=llm,
-    tools=[list_table, tables_schema,execute_sql,check_sql_query],
+    tools=[list_table, tables_schema,check_sql_query,execute_sql],
     allow_delegation=False,
 )
 
@@ -124,7 +124,7 @@ def tasks(inputs) -> Crew:
 
 
     analyze_data = Task(
-        description="Analyze the data from the database and write an analysis for {query}.",
+        description=f"Analyze the data from the database and write an analysis for {inputs['query']}.",
         expected_output="Detailed analysis text",
         agent=data_analyst,
         context=[extract_data],
@@ -155,4 +155,12 @@ def tasks(inputs) -> Crew:
 
     return crew
 
+inputs = {
+    "query": "What is biggest salary?"
+}
+
+crew = tasks(inputs)
+result = crew.kickoff(inputs=inputs)    
+
+print(result)
 
